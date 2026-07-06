@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>劇本殺算錢小幫手</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/versions/2.24.0/sdk.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: #f1efe8;
+    color: #2c2c2a;
+  }
+  .app {
+    max-width: 420px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: #fff;
+  }
+  .header {
+    background: #06C755;
+    color: #fff;
+    padding: 16px 18px;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .content { padding: 20px 18px 40px; }
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: block;
+    font-size: 13px;
+    color: #5f5e5a;
+    margin-bottom: 6px;
+  }
+  .field input {
+    width: 100%;
+    font-size: 16px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #d3d1c7;
+    background: #fafaf8;
+  }
+  .field input:focus {
+    outline: none;
+    border-color: #06C755;
+  }
+  .g-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  .g-btn {
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+    border-radius: 10px;
+    border: 1px solid #d3d1c7;
+    font-size: 14px;
+    background: #fafaf8;
+    cursor: pointer;
+    user-select: none;
+  }
+  .g-btn.active {
+    border: 2px solid #06C755;
+    color: #06C755;
+    font-weight: 600;
+    background: #eaf9f0;
+  }
+  .calc-btn {
+    width: 100%;
+    text-align: center;
+    background: #06C755;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 0;
+    font-size: 16px;
+    font-weight: 600;
+    margin-top: 6px;
+    cursor: pointer;
+  }
+  .calc-btn:active { opacity: 0.85; }
+  .result {
+    margin-top: 20px;
+    background: #f8f7f3;
+    border: 1px solid #e5e3d9;
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 14px;
+    line-height: 1.8;
+    display: none;
+  }
+  .result.show { display: block; }
+  .result h3 {
+    font-size: 15px;
+    margin: 0 0 8px;
+    font-weight: 600;
+  }
+  .result .sub {
+    color: #5f5e5a;
+    font-size: 12px;
+    margin: 10px 0 2px;
+  }
+  .result .divider {
+    border-top: 1px solid #d3d1c7;
+    margin-top: 6px;
+    padding-top: 6px;
+    font-weight: 600;
+  }
+  .result .final {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #b4b2a9;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .result .final .label { font-size: 13px; color: #5f5e5a; }
+  .result .final .value { font-size: 20px; font-weight: 700; color: #06C755; }
+  .error {
+    color: #a32d2d;
+    font-size: 13px;
+    margin-top: 10px;
+    display: none;
+  }
+  .error.show { display: block; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">🎭 劇本殺算錢小幫手</div>
+  <div class="content">
+
+    <div class="field">
+      <label>單價(元/人)</label>
+      <input type="number" id="price" placeholder="例如 2250" inputmode="decimal" />
+    </div>
+
+    <div class="field">
+      <label>實際遊戲時長(小時,可小數)</label>
+      <input type="number" id="hours" placeholder="例如 4.5" step="0.1" inputmode="decimal" />
+    </div>
+
+    <div class="field">
+      <label>超時分鐘(沒超時就填 0)</label>
+      <input type="number" id="overtime" placeholder="例如 30" inputmode="decimal" value="0" />
+    </div>
+
+    <div class="field">
+      <label>主持人人數(G)</label>
+      <div class="g-buttons" id="gButtons">
+        <div class="g-btn" data-g="1">單G</div>
+        <div class="g-btn" data-g="2">2G</div>
+        <div class="g-btn" data-g="3">3G</div>
+        <div class="g-btn" data-g="4">4G</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>玩家人數(預設 6 人)</label>
+      <input type="number" id="people" placeholder="6" value="6" inputmode="numeric" />
+    </div>
+
+    <button class="calc-btn" id="calcBtn">計算</button>
+
+    <div class="error" id="errorBox"></div>
+
+    <div class="result" id="resultBox"></div>
+
+  </div>
+</div>
+
+<script>
+  // 嘗試初始化 LIFF,如果不是在 LINE 裡打開(例如一般瀏覽器測試)就忽略錯誤
+  if (window.liff) {
+    liff.init({ liffId: "YOUR_LIFF_ID" }).catch(function (e) {
+      console.log("LIFF init skipped:", e);
+    });
+  }
+
+  // 超時費規則:依需要的 G 數決定每個時段的長度與費用
+  var OVERTIME_RULES = {
+    1: { unitMinutes: 60, feePerUnit: 50 },
+    2: { unitMinutes: 30, feePerUnit: 50 },
+    3: { unitMinutes: 30, feePerUnit: 75 },
+    4: { unitMinutes: 30, feePerUnit: 100 },
+  };
+
+  var selectedG = null;
+  var gButtons = document.querySelectorAll(".g-btn");
+  gButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      gButtons.forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      selectedG = Number(btn.dataset.g);
+    });
+  });
+
+  function fmt(n) {
+    return Math.round(n).toLocaleString("zh-Hant-TW");
+  }
+
+  function showError(msg) {
+    var box = document.getElementById("errorBox");
+    box.textContent = msg;
+    box.classList.add("show");
+    document.getElementById("resultBox").classList.remove("show");
+  }
+
+  function clearError() {
+    document.getElementById("errorBox").classList.remove("show");
+  }
+
+  // 超過10分鐘即算下一個完整時段
+  function calcOvertimeUnits(overtimeMinutes, unitMinutes) {
+    if (overtimeMinutes <= 10) return 0;
+    return Math.ceil((overtimeMinutes - 10) / unitMinutes);
+  }
+
+  document.getElementById("calcBtn").addEventListener("click", function () {
+    var price = Number(document.getElementById("price").value);
+    var hours = Number(document.getElementById("hours").value);
+    var overtime = Number(document.getElementById("overtime").value || 0);
+    var peopleInput = document.getElementById("people").value;
+    var people = peopleInput === "" ? 6 : Number(peopleInput);
+
+    if (!selectedG) return showError("請選擇主持人需要幾位 G");
+    if (!price || price <= 0) return showError("請輸入正確的單價");
+    if (!hours || hours <= 0) return showError("請輸入正確的遊戲時長");
+    if (overtime < 0) return showError("超時分鐘不能是負數");
+    if (!people || people <= 0) return showError("人數需為正整數");
+
+    clearError();
+
+    var rule = OVERTIME_RULES[selectedG];
+    var units = calcOvertimeUnits(overtime, rule.unitMinutes);
+    var overtimeFeePerPerson = units * rule.feePerUnit;
+    var perPersonTotal = price + overtimeFeePerPerson;
+    var playerTotal = perPersonTotal * people;
+
+    var payoutPerG = 250 * (hours + 1);
+    var totalGPayout = payoutPerG * selectedG;
+
+    var shopNet = playerTotal - totalGPayout;
+
+    var unitLabel = rule.unitMinutes === 60 ? "1小時" : "半小時";
+
+    var html = ""
+      + "<h3>計算結果</h3>"
+      + "<div class=\"sub\">玩家應收</div>"
+      + "<div>單價 " + fmt(price) + " × " + people + "人 = " + fmt(price * people) + "</div>"
+      + "<div>超時 " + overtime + "分 → " + units + "個時段(" + selectedG + "G規則:每" + unitLabel + "/人" + rule.feePerUnit + "元)</div>"
+      + "<div>超時費 " + rule.feePerUnit + " × " + people + "人 × " + units + "時段 = " + fmt(overtimeFeePerPerson * people) + "</div>"
+      + "<div class=\"divider\">應收總額 = " + fmt(price * people) + " + " + fmt(overtimeFeePerPerson * people) + " = " + fmt(playerTotal) + "</div>"
+      + "<div class=\"sub\">主持人薪水(共" + selectedG + "位G)</div>"
+      + "<div>遊戲時長 " + hours + "小時</div>"
+      + "<div>每位 = 250 ×(" + hours + "+1)= " + fmt(payoutPerG) + "</div>"
+      + "<div>" + selectedG + "位共發 = " + fmt(payoutPerG) + " × " + selectedG + " = " + fmt(totalGPayout) + "</div>"
+      + "<div class=\"final\"><span class=\"label\">店家淨收</span><span class=\"value\">" + fmt(shopNet) + " 元</span></div>";
+
+    var resultBox = document.getElementById("resultBox");
+    resultBox.innerHTML = html;
+    resultBox.classList.add("show");
+  });
+</script>
+</body>
+</html>
